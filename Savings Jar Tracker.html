@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Savings Jar Tracker</title>
+<style>
+:root{
+  --bg:#e8f2ef; --panel:#f6fbf9; --ink:#12332c; --muted:#4f6b64; --accent:#0f766e; --accent-ink:#ffffff;
+  --coin:#e3a72b; --glass:#b9d6cf; --border:#bcd3cc; --bad:#b4232c;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1b19; --panel:#162826; --ink:#e3f3ef; --muted:#9bb9b1; --accent:#5eead4; --accent-ink:#06201c;
+    --coin:#f0b93f; --glass:#2c4a45; --border:#2c4743; --bad:#ff8088; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1b19; --panel:#162826; --ink:#e3f3ef; --muted:#9bb9b1; --accent:#5eead4; --accent-ink:#06201c;
+  --coin:#f0b93f; --glass:#2c4a45; --border:#2c4743; --bad:#ff8088; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{max-width:680px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;margin:4px 0 2px;letter-spacing:.2px}
+h2{font-size:1.1rem;margin:0 0 8px}
+.sub{color:var(--muted);margin:0 0 18px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+form{display:grid;gap:10px}
+label{font-weight:700;font-size:.95rem}
+input{font:inherit;width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink)}
+button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--ink);padding:10px 14px;border-radius:8px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.msg{min-height:1.4em;font-size:.95rem}
+.msg.err{color:var(--bad)}
+.hero{display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:center}
+.jar{position:relative;width:150px;height:230px;border:4px solid var(--glass);border-top-width:10px;border-radius:14px 14px 40px 40px;overflow:hidden;background:var(--bg)}
+.fill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--coin);transition:height .6s ease}
+.pct{position:absolute;inset:0;display:grid;place-items:center;font-size:2rem;font-weight:700;color:var(--ink);text-shadow:0 0 6px var(--bg),0 0 6px var(--bg)}
+.goal-name{font-size:1.3rem;font-weight:700;margin:0}
+.big{font-size:2rem;font-weight:700;margin:2px 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px}
+.stat{border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.stat b{display:block;font-size:1.1rem}
+.stat span{color:var(--muted);font-size:.85rem}
+.note{margin:12px 0 0;font-weight:700;color:var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+.list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.list li{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+.list small{color:var(--muted);display:block}
+.hidden{display:none}
+@media (max-width:480px){.hero{grid-template-columns:1fr;justify-items:center;text-align:center}}
+@media (prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Savings Jar Tracker</h1>
+  <p class="sub">Set a goal, add money as you save, and watch the jar fill.</p>
+
+  <section id="setup" class="panel hidden">
+    <h2>Start a savings goal</h2>
+    <form id="goalForm">
+      <label for="gname">What are you saving for?</label>
+      <input id="gname" maxlength="40" placeholder="Example: Laptop" required>
+      <label for="gtarget">Target amount ($)</label>
+      <input id="gtarget" type="number" min="1" step="0.01" inputmode="decimal" placeholder="800" required>
+      <button class="primary" type="submit">Create goal</button>
+      <div class="msg err" id="goalMsg" role="status"></div>
+    </form>
+  </section>
+
+  <section id="tracker" class="hidden">
+    <div class="panel hero">
+      <div class="jar" aria-hidden="true"><div class="fill" id="fill"></div><div class="pct" id="pct">0%</div></div>
+      <div>
+        <p class="goal-name" id="gtitle"></p>
+        <p class="big" id="saved"></p>
+        <div id="ofline" style="color:var(--muted)"></div>
+        <div class="stats">
+          <div class="stat"><b id="left"></b><span>Left to save</span></div>
+          <div class="stat"><b id="count"></b><span>Deposits</span></div>
+          <div class="stat"><b id="avg"></b><span>Average deposit</span></div>
+        </div>
+        <p class="note" id="note" role="status"></p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Add money</h2>
+      <form id="depForm">
+        <div class="row">
+          <div><label for="amt">Amount ($)</label><input id="amt" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+          <div><label for="memo">Note (optional)</label><input id="memo" maxlength="40" placeholder="Paycheck, birthday money"></div>
+        </div>
+        <button class="primary" type="submit">Add to jar</button>
+        <div class="msg" id="depMsg" role="status"></div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>History</h2>
+      <ul class="list" id="history"></ul>
+      <div class="row" style="margin-top:12px">
+        <button id="undoBtn">Undo last deposit</button>
+        <button id="newBtn">Start a new goal</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+var KEY = "savingsjar.v1";
+var goal = null;
+var money = new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"});
+function $(id){ return document.getElementById(id); }
+
+function load(){ try{ var s = localStorage.getItem(KEY); if(s){ var g = JSON.parse(s); if(g && g.target > 0 && Array.isArray(g.deposits)) return g; } }catch(e){} return null; }
+function save(){ try{ if(goal) localStorage.setItem(KEY, JSON.stringify(goal)); else localStorage.removeItem(KEY); }catch(e){} }
+function total(){ return goal.deposits.reduce(function(s,d){ return s + d.amt; }, 0); }
+
+function milestone(p, n){
+  if(p >= 100) return "Goal reached! You saved every dollar of " + money.format(goal.target) + ".";
+  if(n === 0) return "Add your first deposit to get started.";
+  if(p >= 75) return "Almost there. Less than a quarter of the jar left to fill.";
+  if(p >= 50) return "Halfway milestone passed. Keep going.";
+  if(p >= 25) return "A quarter of the way there. Nice start.";
+  return "Every deposit counts. The jar is filling.";
+}
+
+function render(){
+  $("setup").classList.toggle("hidden", !!goal);
+  $("tracker").classList.toggle("hidden", !goal);
+  if(!goal) return;
+  var saved = total(), n = goal.deposits.length;
+  var p = Math.min(100, saved / goal.target * 100);
+  var left = Math.max(0, goal.target - saved);
+  $("gtitle").textContent = goal.name;
+  $("saved").textContent = money.format(saved);
+  $("ofline").textContent = "of " + money.format(goal.target);
+  $("fill").style.height = p + "%";
+  $("pct").textContent = Math.floor(p) + "%";
+  $("left").textContent = money.format(left);
+  $("count").textContent = n;
+  var avg = n ? saved / n : 0;
+  $("avg").textContent = n ? money.format(avg) : "–";
+  var note = milestone(p, n);
+  if(n && left > 0 && avg > 0) note += " About " + Math.ceil(left / avg) + " more deposits like your average will finish it.";
+  $("note").textContent = note;
+  var ul = $("history"); ul.innerHTML = "";
+  if(!n){ var e = document.createElement("li"); e.textContent = "No deposits yet."; ul.appendChild(e); }
+  goal.deposits.slice().reverse().forEach(function(d){
+    var li = document.createElement("li");
+    var t = document.createElement("div");
+    t.textContent = "+ " + money.format(d.amt);
+    if(d.memo){ var s = document.createElement("small"); s.textContent = d.memo; t.appendChild(s); }
+    li.appendChild(t); ul.appendChild(li);
+  });
+}
+
+$("goalForm").onsubmit = function(e){
+  e.preventDefault();
+  var name = $("gname").value.trim(), target = parseFloat($("gtarget").value);
+  if(!name || !(target > 0)){ $("goalMsg").textContent = "Enter a goal name and a target above $0."; return; }
+  goal = {name:name, target:target, deposits:[]};
+  $("goalMsg").textContent = ""; $("goalForm").reset(); save(); render(); $("amt").focus();
+};
+$("depForm").onsubmit = function(e){
+  e.preventDefault();
+  var amt = parseFloat($("amt").value);
+  if(!(amt > 0)){ $("depMsg").textContent = "Enter an amount above $0."; return; }
+  goal.deposits.push({amt:Math.round(amt*100)/100, memo:$("memo").value.trim()});
+  $("depMsg").textContent = "Added " + money.format(amt) + " to the jar.";
+  $("depForm").reset(); save(); render(); $("amt").focus();
+};
+$("undoBtn").onclick = function(){
+  if(!goal.deposits.length){ $("depMsg").textContent = "There is no deposit to undo."; return; }
+  var d = goal.deposits.pop(); save(); render();
+  $("depMsg").textContent = "Removed the last deposit of " + money.format(d.amt) + ".";
+};
+$("newBtn").onclick = function(){
+  if(confirm("Start a new goal? This clears your current jar.")){ goal = null; save(); render(); $("gname").focus(); }
+};
+
+goal = load();
+render();
+</script>
+</body>
+</html>
